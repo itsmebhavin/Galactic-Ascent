@@ -321,6 +321,15 @@
   .cell{position:relative}
   .cell.claimed{opacity:.62}
   .claimdot{position:absolute;top:4px;left:4px;width:13px;height:13px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.55);z-index:3}
+
+  /* --- 3-in-1 level picker --- */
+  .levels{display:flex;gap:8px;margin:6px 0 12px}
+  .lvl{flex:1;font-family:'Rajdhani',sans-serif;font-size:12.5px;letter-spacing:.4px;padding:10px 6px;border-radius:10px;border:1px solid var(--line);background:rgba(8,13,35,.5);color:var(--muted);cursor:pointer;text-align:center;line-height:1.2}
+  .lvl b{display:block;font-family:'Orbitron',sans-serif;font-size:18px;color:inherit;margin-bottom:3px}
+  .lvl.active{border-color:var(--plasma);color:var(--plasma);box-shadow:inset 0 0 14px rgba(56,225,255,.2)}
+  .optlabel{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--muted);margin:2px 0;text-transform:uppercase}
+  .cf-pts{position:absolute;top:12px;right:12px;z-index:4;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;padding:5px 11px;border:1.6px solid;border-radius:20px;background:rgba(8,13,35,.65)}
+  .wm{position:fixed;right:9px;bottom:7px;z-index:6;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;color:#5a6386;opacity:.5;pointer-events:none}
 </style>
 </head>
 <body>
@@ -358,10 +367,16 @@
           <button data-n="3">3 ◊</button>
           <button data-n="4">4 ◊</button>
         </div>
+        <div class="levels" id="levels">
+          <button class="lvl" data-level="1"><b>1</b>Space Jump</button>
+          <button class="lvl active" data-level="2"><b>2</b>Planet Hunt</button>
+          <button class="lvl" data-level="3"><b>3</b>Deep Space Ops</button>
+        </div>
+        <div class="optlabel">Fine-tune</div>
         <div class="opts" id="opts">
-          <button class="opt on" data-opt="missions">Missions</button>
+          <button class="opt" data-opt="missions">Missions</button>
           <button class="opt" data-opt="secret">Secret</button>
-          <button class="opt on" data-opt="fuel">Fuel ✦</button>
+          <button class="opt" data-opt="fuel">Fuel ✦</button>
           <button class="opt" data-opt="quick">Quick race</button>
           <button class="opt" data-opt="shuffle">Shuffle 🪐</button>
           <button class="opt" data-opt="coop">Co-op ☄</button>
@@ -400,7 +415,7 @@
         <div class="leg"><div class="mk" id="leg-small" style="border-color:var(--ship-small)"></div><div>Small ship<small>Short hop forward</small></div></div>
         <div class="leg"><div class="mk" style="border-color:var(--good)">👽</div><div>Good alien<small>Beams you +3</small></div></div>
         <div class="leg"><div class="mk" style="border-color:var(--bad)">👾</div><div>Bad alien<small>Knocks you −3</small></div></div>
-        <div class="leg"><div class="mk" style="border-color:var(--solar)">💥</div><div>Ship malfunction<small>Drift back −2</small></div></div>
+        <div class="leg"><div class="mk" style="border-color:var(--bad)">💥</div><div>Malfunction<small>Slide down a snake</small></div></div>
         <div class="leg"><div class="mk" id="leg-planet" style="border-color:var(--violet)"></div><div>Planet<small>Collect its card · 16 worlds</small></div></div>
         <div class="leg"><div class="mk" style="border-color:var(--gold)">🏁</div><div>Home base · 100<small>Ends the mission</small></div></div>
       </div>
@@ -409,9 +424,9 @@
     <div class="card rules">
       <h2 style="font-size:12px;letter-spacing:2px;color:var(--plasma);font-family:'Orbitron',sans-serif;text-transform:uppercase;margin:0 0 14px">Mission Rules</h2>
       <p>Launch from the pad at <b>1</b> and race the grid to home base at <b>100</b>. On your turn, roll and fly forward that many squares.</p>
-      <p>Board your <b>ship</b> and warp ahead to its lane's end. <b>Good aliens</b> beam you forward 3; <b>bad aliens</b> shove you back 3; a <b>malfunction</b> drifts you back 2.</p>
+      <p>Board your <b>ship</b> and warp ahead to its lane's end. <b>Good aliens</b> beam you forward 3; <b>bad aliens</b> shove you back 3; a <b>malfunction</b> sends you sliding down a snake (small, mid or major).</p>
       <p>Touch down on a <b>planet</b> to claim its badge. A square only triggers when you <em>land</em> on it by rolling — warps and shoves don't chain, but if a warp drops you onto a planet, you still grab that badge.</p>
-      <p class="gold">The mission ends the moment a crew member crosses 100. The winner is whoever holds the <b class="gold">most planet badges</b> at that point — reaching home first only matters as the tiebreaker.</p>
+      <p class="gold">The mission ends the moment a crew member crosses 100. The winner is whoever holds the <b class="gold">most points</b> at that point (each world is worth points) — reaching home first only breaks a tie.</p>
     </div>
   </div>
 </div>
@@ -476,21 +491,22 @@ let SHIPS=[
 ];
 let GOOD_ALIENS=[7,19,38,55,73,85];      // +3
 let BAD_ALIENS=[13,27,46,62,77,93];      // -3
-let MALFUNCTIONS=[17,31,52,68,81,96];    // -2
+let MALFUNCTIONS=[{from:17,to:8,tier:'small'},{from:31,to:25,tier:'small'},{from:52,to:36,tier:'mid'},{from:68,to:50,tier:'mid'},{from:81,to:48,tier:'major'},{from:96,to:61,tier:'major'}];
 const PLANETS_SQ=[5, 12, 23, 30, 35, 42, 47, 56, 60, 64, 70, 75, 84, 88, 92, 97];
-const PLANET_DATA={"5": {"num": 1, "name": "MERCURY", "kind": "Terrestrial planet", "arch": "cratered_gray", "light": "#e9e1d2", "mid": "#a89c89", "dark": "#5f574c", "glow": "#d8c9aa", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "4,879 km — smallest"], ["From Sun", "58M km · 0.39 AU"], ["Day", "59 Earth days"], ["Year", "88 Earth days"], ["Moons", "0"], ["Surface", "−180°C to 430°C"]], "fun": "A year on Mercury is shorter than a single one of its long, scorching days."}, "12": {"num": 2, "name": "VENUS", "kind": "Terrestrial planet", "arch": "venus", "light": "#ffe9b0", "mid": "#e9b96a", "dark": "#9c6f2e", "glow": "#ffd98a", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "12,104 km"], ["From Sun", "108M km · 0.72 AU"], ["Day", "243 Earth days"], ["Year", "225 Earth days"], ["Moons", "0"], ["Surface", "~465°C — hottest!"]], "fun": "Venus spins backwards, and its day lasts longer than its whole year."}, "23": {"num": 3, "name": "EARTH", "kind": "Our home world", "arch": "earth", "light": "#a9e3ff", "mid": "#2f7fd6", "dark": "#123a78", "glow": "#6fc0ff", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "12,742 km"], ["From Sun", "150M km · 1 AU"], ["Day", "24 hours"], ["Year", "365.25 days"], ["Moons", "1 (the Moon)"], ["Surface", "avg ~15°C"]], "fun": "The only world we know with liquid oceans and living things — about 71% water."}, "30": {"num": 4, "name": "THE MOON", "kind": "Earth’s satellite", "arch": "moon", "light": "#e9e9ee", "mid": "#a9abb6", "dark": "#5c5e6a", "glow": "#cfd2de", "facts": [["Type", "Natural satellite"], ["Diameter", "3,474 km"], ["From Earth", "384,400 km"], ["Orbit", "27.3 Earth days"], ["Spin", "locked to Earth"], ["Moons", "—"], ["Surface", "−173°C to 127°C"]], "fun": "The same face always points at Earth, and 12 people have walked on its dusty surface."}, "35": {"num": 5, "name": "MARS", "kind": "Terrestrial planet", "arch": "mars", "light": "#ff9d63", "mid": "#c75a33", "dark": "#7a2c1b", "glow": "#ff8a52", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "6,779 km"], ["From Sun", "228M km · 1.5 AU"], ["Day", "24.6 hours"], ["Year", "687 Earth days"], ["Moons", "2"], ["Surface", "avg ~−60°C"]], "fun": "Mars hosts Olympus Mons, the tallest volcano in the Solar System — three times Everest."}, "42": {"num": 6, "name": "JUPITER", "kind": "Gas giant", "arch": "jupiter", "light": "#f4dcb4", "mid": "#c79a6a", "dark": "#7e5a3a", "glow": "#e9c79a", "facts": [["Type", "Gas giant"], ["Diameter", "139,820 km — largest"], ["From Sun", "778M km · 5.2 AU"], ["Day", "9.9 hours"], ["Year", "12 Earth years"], ["Moons", "95 known"], ["Cloud tops", "~−110°C"]], "fun": "Over 1,300 Earths would fit inside. Its Great Red Spot is a storm wider than our planet."}, "47": {"num": 7, "name": "EUROPA", "kind": "Jupiter’s icy moon", "arch": "europa", "light": "#f3ead6", "mid": "#d8c8a8", "dark": "#8a7a5e", "glow": "#ead9c0", "facts": [["Type", "Icy moon of Jupiter"], ["Diameter", "3,122 km"], ["From Sun", "778M km (w/ Jupiter)"], ["Orbit", "3.5 Earth days"], ["Crust", "water ice"], ["Hidden", "a salty ocean"], ["Surface", "~−160°C"]], "fun": "Under its cracked ice may lie an ocean holding more water than all of Earth — a place to hunt for life."}, "56": {"num": 8, "name": "SATURN", "kind": "Ringed gas giant", "arch": "saturn", "light": "#f6e6bd", "mid": "#d8b87e", "dark": "#8f7344", "glow": "#f0d79e", "facts": [["Type", "Gas giant"], ["Diameter", "116,460 km"], ["From Sun", "1.43B km · 9.5 AU"], ["Day", "10.7 hours"], ["Year", "29 Earth years"], ["Moons", "140+ known"], ["Cloud tops", "~−140°C"]], "fun": "Saturn is so light for its size it would float in a giant bathtub of water."}, "60": {"num": 9, "name": "TITAN", "kind": "Saturn’s largest moon", "arch": "titan", "light": "#ffcf7a", "mid": "#e69b3a", "dark": "#9c5e16", "glow": "#ffbf66", "facts": [["Type", "Moon of Saturn"], ["Diameter", "5,150 km — > Mercury"], ["From Sun", "1.4B km (w/ Saturn)"], ["Orbit", "16 Earth days"], ["Air", "thick nitrogen"], ["Liquids", "methane lakes"], ["Surface", "~−179°C"]], "fun": "Titan has rivers, rain and seas — but made of liquid methane instead of water."}, "64": {"num": 10, "name": "URANUS", "kind": "Ice giant", "arch": "uranus", "light": "#c8f6f0", "mid": "#79cfd0", "dark": "#2f7e88", "glow": "#a6eef0", "facts": [["Type", "Ice giant"], ["Diameter", "50,724 km"], ["From Sun", "2.87B km · 19 AU"], ["Day", "17 hours"], ["Year", "84 Earth years"], ["Moons", "28 known"], ["Cloud tops", "~−200°C"]], "fun": "Uranus is tipped right over and rolls around the Sun on its side, like a cosmic marble."}, "70": {"num": 11, "name": "NEPTUNE", "kind": "Ice giant", "arch": "neptune", "light": "#7fb4ff", "mid": "#2f5fd0", "dark": "#14266e", "glow": "#5a8cff", "facts": [["Type", "Ice giant"], ["Diameter", "49,244 km"], ["From Sun", "4.5B km · 30 AU"], ["Day", "16 hours"], ["Year", "165 Earth years"], ["Moons", "16 known"], ["Cloud tops", "~−210°C"]], "fun": "Neptune has the fastest winds in the Solar System — supersonic gusts up to 2,100 km/h."}, "75": {"num": 12, "name": "PLUTO", "kind": "Dwarf planet", "arch": "pluto", "light": "#e7d3b3", "mid": "#b89a76", "dark": "#6e5640", "glow": "#d8c2a0", "facts": [["Type", "Dwarf planet (Kuiper Belt)"], ["Diameter", "2,377 km"], ["From Sun", "5.9B km · 39 AU"], ["Day", "6.4 Earth days"], ["Year", "248 Earth years"], ["Moons", "5"], ["Surface", "~−230°C"]], "fun": "Pluto wears a giant heart-shaped glacier of frozen nitrogen across its face."}, "84": {"num": 13, "name": "PROXIMA b", "kind": "Exoplanet · rocky", "arch": "exo_rocky", "light": "#e0926a", "mid": "#a85636", "dark": "#5e2c1c", "glow": "#cf7a52", "facts": [["Type", "Exoplanet · rocky"], ["Star", "Proxima Centauri"], ["From us", "4.24 light-years"], ["Mass", "~1.1 × Earth"], ["Year", "11.2 Earth days"], ["Zone", "habitable"], ["Found", "2016"]], "fun": "The nearest known planet beyond our Solar System — yet a whole year there lasts just 11 days."}, "88": {"num": 14, "name": "TRAPPIST-1e", "kind": "Exoplanet · ocean?", "arch": "exo_ocean", "light": "#9fd0d8", "mid": "#3f8f96", "dark": "#1f4a56", "glow": "#d08a6a", "facts": [["Type", "Exoplanet · rocky"], ["Star", "TRAPPIST-1 dwarf"], ["From us", "~40 light-years"], ["Size", "~Earth-sized"], ["Year", "6.1 Earth days"], ["System", "1 of 7 worlds"], ["Water", "possibly"]], "fun": "One of seven Earth-sized worlds — from its surface, neighbours would loom larger than our Moon."}, "92": {"num": 15, "name": "51 PEGASI b", "kind": "Exoplanet · hot Jupiter", "arch": "hot_jupiter", "light": "#ffd9a0", "mid": "#e8843a", "dark": "#a83a1a", "glow": "#ffb070", "facts": [["Type", "Exoplanet · hot Jupiter"], ["Star", "51 Pegasi (Sun-like)"], ["From us", "~50 light-years"], ["Year", "4.2 Earth days"], ["Temp", "~1,000°C"], ["Found", "1995"], ["Fame", "1st around a Sun-like star"]], "fun": "The first planet ever found circling a normal star like our Sun — a Nobel Prize discovery."}, "97": {"num": 16, "name": "HD 189733 b", "kind": "Exoplanet · hot Jupiter", "arch": "blue_giant", "light": "#7fb0ff", "mid": "#2a5fd0", "dark": "#0e1f6e", "glow": "#5a8cff", "facts": [["Type", "Exoplanet · hot Jupiter"], ["Star", "HD 189733"], ["From us", "~64 light-years"], ["Year", "2.2 Earth days"], ["Colour", "cobalt blue"], ["Winds", "7,000 km/h"], ["Temp", "~930°C"]], "fun": "This world glows blue — but the colour comes from clouds of glass that may fall sideways as rain."}};
+const PLANET_DATA={"5": {"num": 1, "name": "MERCURY", "kind": "Terrestrial planet", "arch": "cratered_gray", "light": "#e9e1d2", "mid": "#a89c89", "dark": "#5f574c", "glow": "#d8c9aa", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "4,879 km — smallest"], ["From Sun", "58M km · 0.39 AU"], ["Day", "59 Earth days"], ["Year", "88 Earth days"], ["Moons", "0"], ["Surface", "−180°C to 430°C"]], "fun": "A year on Mercury is shorter than a single one of its long, scorching days.", "pts": 1, "cat": "planet", "extra": "Mercury has almost no atmosphere, so it swings from baking days to freezing nights."}, "12": {"num": 2, "name": "VENUS", "kind": "Terrestrial planet", "arch": "venus", "light": "#ffe9b0", "mid": "#e9b96a", "dark": "#9c6f2e", "glow": "#ffd98a", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "12,104 km"], ["From Sun", "108M km · 0.72 AU"], ["Day", "243 Earth days"], ["Year", "225 Earth days"], ["Moons", "0"], ["Surface", "~465°C — hottest!"]], "fun": "Venus spins backwards, and its day lasts longer than its whole year.", "pts": 1, "cat": "planet", "extra": "Its thick clouds trap so much heat that Venus is even hotter than Mercury."}, "23": {"num": 3, "name": "EARTH", "kind": "Our home world", "arch": "earth", "light": "#a9e3ff", "mid": "#2f7fd6", "dark": "#123a78", "glow": "#6fc0ff", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "12,742 km"], ["From Sun", "150M km · 1 AU"], ["Day", "24 hours"], ["Year", "365.25 days"], ["Moons", "1 (the Moon)"], ["Surface", "avg ~15°C"]], "fun": "The only world we know with liquid oceans and living things — about 71% water.", "pts": 2, "cat": "planet", "extra": "Earth’s magnetic field shields us from harmful solar radiation."}, "30": {"num": 4, "name": "THE MOON", "kind": "Earth’s satellite", "arch": "moon", "light": "#e9e9ee", "mid": "#a9abb6", "dark": "#5c5e6a", "glow": "#cfd2de", "facts": [["Type", "Natural satellite"], ["Diameter", "3,474 km"], ["From Earth", "384,400 km"], ["Orbit", "27.3 Earth days"], ["Spin", "locked to Earth"], ["Moons", "—"], ["Surface", "−173°C to 127°C"]], "fun": "The same face always points at Earth, and 12 people have walked on its dusty surface.", "pts": 1, "cat": "moon", "extra": "The Moon drifts about 3.8 cm farther from Earth every year."}, "35": {"num": 5, "name": "MARS", "kind": "Terrestrial planet", "arch": "mars", "light": "#ff9d63", "mid": "#c75a33", "dark": "#7a2c1b", "glow": "#ff8a52", "facts": [["Type", "Rocky / terrestrial"], ["Diameter", "6,779 km"], ["From Sun", "228M km · 1.5 AU"], ["Day", "24.6 hours"], ["Year", "687 Earth days"], ["Moons", "2"], ["Surface", "avg ~−60°C"]], "fun": "Mars hosts Olympus Mons, the tallest volcano in the Solar System — three times Everest.", "pts": 2, "cat": "planet", "extra": "Mars has seasons like Earth because it tilts at a similar angle."}, "42": {"num": 6, "name": "JUPITER", "kind": "Gas giant", "arch": "jupiter", "light": "#f4dcb4", "mid": "#c79a6a", "dark": "#7e5a3a", "glow": "#e9c79a", "facts": [["Type", "Gas giant"], ["Diameter", "139,820 km — largest"], ["From Sun", "778M km · 5.2 AU"], ["Day", "9.9 hours"], ["Year", "12 Earth years"], ["Moons", "95 known"], ["Cloud tops", "~−110°C"]], "fun": "Over 1,300 Earths would fit inside. Its Great Red Spot is a storm wider than our planet.", "pts": 3, "cat": "planet", "extra": "Jupiter has the strongest magnetic field of any planet."}, "47": {"num": 7, "name": "EUROPA", "kind": "Jupiter’s icy moon", "arch": "europa", "light": "#f3ead6", "mid": "#d8c8a8", "dark": "#8a7a5e", "glow": "#ead9c0", "facts": [["Type", "Icy moon of Jupiter"], ["Diameter", "3,122 km"], ["From Sun", "778M km (w/ Jupiter)"], ["Orbit", "3.5 Earth days"], ["Crust", "water ice"], ["Hidden", "a salty ocean"], ["Surface", "~−160°C"]], "fun": "Under its cracked ice may lie an ocean holding more water than all of Earth — a place to hunt for life.", "pts": 2, "cat": "moon", "extra": "Europa has one of the smoothest surfaces of any world we have seen."}, "56": {"num": 8, "name": "SATURN", "kind": "Ringed gas giant", "arch": "saturn", "light": "#f6e6bd", "mid": "#d8b87e", "dark": "#8f7344", "glow": "#f0d79e", "facts": [["Type", "Gas giant"], ["Diameter", "116,460 km"], ["From Sun", "1.43B km · 9.5 AU"], ["Day", "10.7 hours"], ["Year", "29 Earth years"], ["Moons", "140+ known"], ["Cloud tops", "~−140°C"]], "fun": "Saturn is so light for its size it would float in a giant bathtub of water.", "pts": 3, "cat": "planet", "extra": "Saturn is so light it would float in a giant bathtub of water."}, "60": {"num": 9, "name": "TITAN", "kind": "Saturn’s largest moon", "arch": "titan", "light": "#ffcf7a", "mid": "#e69b3a", "dark": "#9c5e16", "glow": "#ffbf66", "facts": [["Type", "Moon of Saturn"], ["Diameter", "5,150 km — > Mercury"], ["From Sun", "1.4B km (w/ Saturn)"], ["Orbit", "16 Earth days"], ["Air", "thick nitrogen"], ["Liquids", "methane lakes"], ["Surface", "~−179°C"]], "fun": "Titan has rivers, rain and seas — but made of liquid methane instead of water.", "pts": 2, "cat": "moon", "extra": "Titan is the only moon with a thick atmosphere and rivers — of liquid methane."}, "64": {"num": 10, "name": "URANUS", "kind": "Ice giant", "arch": "uranus", "light": "#c8f6f0", "mid": "#79cfd0", "dark": "#2f7e88", "glow": "#a6eef0", "facts": [["Type", "Ice giant"], ["Diameter", "50,724 km"], ["From Sun", "2.87B km · 19 AU"], ["Day", "17 hours"], ["Year", "84 Earth years"], ["Moons", "28 known"], ["Cloud tops", "~−200°C"]], "fun": "Uranus is tipped right over and rolls around the Sun on its side, like a cosmic marble.", "pts": 3, "cat": "planet", "extra": "Uranus rolls around the Sun on its side, like a rolling ball."}, "70": {"num": 11, "name": "NEPTUNE", "kind": "Ice giant", "arch": "neptune", "light": "#7fb4ff", "mid": "#2f5fd0", "dark": "#14266e", "glow": "#5a8cff", "facts": [["Type", "Ice giant"], ["Diameter", "49,244 km"], ["From Sun", "4.5B km · 30 AU"], ["Day", "16 hours"], ["Year", "165 Earth years"], ["Moons", "16 known"], ["Cloud tops", "~−210°C"]], "fun": "Neptune has the fastest winds in the Solar System — supersonic gusts up to 2,100 km/h.", "pts": 4, "cat": "planet", "extra": "Neptune was predicted by maths before anyone ever saw it."}, "75": {"num": 12, "name": "PLUTO", "kind": "Dwarf planet", "arch": "pluto", "light": "#e7d3b3", "mid": "#b89a76", "dark": "#6e5640", "glow": "#d8c2a0", "facts": [["Type", "Dwarf planet (Kuiper Belt)"], ["Diameter", "2,377 km"], ["From Sun", "5.9B km · 39 AU"], ["Day", "6.4 Earth days"], ["Year", "248 Earth years"], ["Moons", "5"], ["Surface", "~−230°C"]], "fun": "Pluto wears a giant heart-shaped glacier of frozen nitrogen across its face.", "pts": 3, "cat": "planet", "extra": "Pluto has a huge heart-shaped plain of frozen nitrogen."}, "84": {"num": 13, "name": "PROXIMA b", "kind": "Exoplanet · rocky", "arch": "exo_rocky", "light": "#e0926a", "mid": "#a85636", "dark": "#5e2c1c", "glow": "#cf7a52", "facts": [["Type", "Exoplanet · rocky"], ["Star", "Proxima Centauri"], ["From us", "4.24 light-years"], ["Mass", "~1.1 × Earth"], ["Year", "11.2 Earth days"], ["Zone", "habitable"], ["Found", "2016"]], "fun": "The nearest known planet beyond our Solar System — yet a whole year there lasts just 11 days.", "pts": 4, "cat": "exo", "extra": "Proxima b circles the nearest star to the Sun, 4.2 light-years away."}, "88": {"num": 14, "name": "TRAPPIST-1e", "kind": "Exoplanet · ocean?", "arch": "exo_ocean", "light": "#9fd0d8", "mid": "#3f8f96", "dark": "#1f4a56", "glow": "#d08a6a", "facts": [["Type", "Exoplanet · rocky"], ["Star", "TRAPPIST-1 dwarf"], ["From us", "~40 light-years"], ["Size", "~Earth-sized"], ["Year", "6.1 Earth days"], ["System", "1 of 7 worlds"], ["Water", "possibly"]], "fun": "One of seven Earth-sized worlds — from its surface, neighbours would loom larger than our Moon.", "pts": 4, "cat": "exo", "extra": "TRAPPIST-1 packs seven Earth-sized planets around a tiny red star."}, "92": {"num": 15, "name": "51 PEGASI b", "kind": "Exoplanet · hot Jupiter", "arch": "hot_jupiter", "light": "#ffd9a0", "mid": "#e8843a", "dark": "#a83a1a", "glow": "#ffb070", "facts": [["Type", "Exoplanet · hot Jupiter"], ["Star", "51 Pegasi (Sun-like)"], ["From us", "~50 light-years"], ["Year", "4.2 Earth days"], ["Temp", "~1,000°C"], ["Found", "1995"], ["Fame", "1st around a Sun-like star"]], "fun": "The first planet ever found circling a normal star like our Sun — a Nobel Prize discovery.", "pts": 5, "cat": "exo", "extra": "51 Pegasi b was the first planet found orbiting a Sun-like star."}, "97": {"num": 16, "name": "HD 189733 b", "kind": "Exoplanet · hot Jupiter", "arch": "blue_giant", "light": "#7fb0ff", "mid": "#2a5fd0", "dark": "#0e1f6e", "glow": "#5a8cff", "facts": [["Type", "Exoplanet · hot Jupiter"], ["Star", "HD 189733"], ["From us", "~64 light-years"], ["Year", "2.2 Earth days"], ["Colour", "cobalt blue"], ["Winds", "7,000 km/h"], ["Temp", "~930°C"]], "fun": "This world glows blue — but the colour comes from clouds of glass that may fall sideways as rain.", "pts": 5, "cat": "exo", "extra": "On HD 189733 b it may rain molten glass, blown sideways by fierce winds."}};
 const PLANETS=PLANETS_SQ;
 
 let shipFrom={}, shipDest={};
 SHIPS.forEach(s=>{shipFrom[s.from]=s; shipDest[s.to]=true;});
 const isGood=n=>GOOD_ALIENS.includes(n), isBad=n=>BAD_ALIENS.includes(n);
-const isMalf=n=>MALFUNCTIONS.includes(n), isPlanet=n=>PLANETS.includes(n);
+let malfFrom={}; const isMalf=n=>!!malfFrom[n], isPlanet=n=>PLANETS.includes(n);
 let STATIONS=[14,34,54,67,86];
 const isStation=n=>STATIONS.includes(n);
-const FIXED_LAYOUT={ships:SHIPS.map(o=>({...o})),good:[...GOOD_ALIENS],bad:[...BAD_ALIENS],malf:[...MALFUNCTIONS],stations:[...STATIONS]};
+const FIXED_LAYOUT={ships:SHIPS.map(o=>({...o})),good:[...GOOD_ALIENS],bad:[...BAD_ALIENS],malf:MALFUNCTIONS.map(o=>({...o})),stations:[...STATIONS]};
 function setLayout(L){
-  SHIPS=L.ships.map(o=>({...o})); GOOD_ALIENS=[...L.good]; BAD_ALIENS=[...L.bad]; MALFUNCTIONS=[...L.malf]; STATIONS=[...L.stations];
+  SHIPS=L.ships.map(o=>({...o})); GOOD_ALIENS=[...L.good]; BAD_ALIENS=[...L.bad]; MALFUNCTIONS=L.malf.map(o=>({...o})); STATIONS=[...L.stations];
   shipFrom={}; shipDest={}; SHIPS.forEach(s=>{shipFrom[s.from]=s; shipDest[s.to]=true;});
+  malfFrom={}; MALFUNCTIONS.forEach(m=>{malfFrom[m.from]=m;});
 }
 function shuffleLayout(){
   const planets=new Set(PLANETS_SQ); const occupied=new Set([1,100]);
@@ -504,7 +520,24 @@ function shuffleLayout(){
   const pool=[]; for(let nn=2;nn<=99;nn++){ if(!occupied.has(nn)&&!planets.has(nn)) pool.push(nn); }
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   const take=k=>pool.splice(0,k);
-  return {ships, good:take(6), bad:take(6), malf:take(6), stations:take(5)};
+  const good=take(6), bad=take(6), stations=take(5);
+  const occ2=new Set([1,100]); occupied.forEach(v=>occ2.add(v)); planets.forEach(v=>occ2.add(v));
+  good.concat(bad,stations).forEach(v=>occ2.add(v));
+  const freeNow=[]; for(let nn=2;nn<=99;nn++){ if(!occ2.has(nn)) freeNow.push(nn); }
+  const malf=[]; const mtiers=[['major',28,36],['major',26,34],['mid',14,20],['mid',12,18],['small',6,10],['small',5,9]];
+  for(const mt of mtiers){ const tier=mt[0],lo=mt[1],hi=mt[2]; let placed=false,guard=0;
+    while(!placed && guard++<600){
+      const fi=Math.floor(Math.random()*freeNow.length); const from=freeNow[fi];
+      if(from<lo+2) continue;
+      const drop=lo+Math.floor(Math.random()*(hi-lo+1)); const to=from-drop;
+      const ti=freeNow.indexOf(to);
+      if(to<2||ti<0||ti===fi) continue;
+      malf.push({from,to,tier});
+      [from,to].forEach(v=>{const k=freeNow.indexOf(v); if(k>=0) freeNow.splice(k,1);});
+      placed=true;
+    }
+  }
+  return {ships, good, bad, malf, stations};
 }
 
 const PLAYER_DEFS=[
@@ -621,7 +654,7 @@ function buildBoard(){
       }
       else if(isGood(n)){cell.classList.add('good'); icon='👽'; tag='<span class="tag t-good">+3</span>';}
       else if(isBad(n)){cell.classList.add('bad'); icon='👾'; tag='<span class="tag t-bad">−3</span>';}
-      else if(isMalf(n)){cell.classList.add('malf'); icon='💥'; tag='<span class="tag t-malf">−2</span>';}
+      else if(isMalf(n)){const m=malfFrom[n]; cell.classList.add('malf'); icon='💥'; tag='<span class="tag t-malf">−'+(m.from-m.to)+'</span>';}
       else if(isPlanet(n)){cell.classList.add('planet'); icon=planetTile(n); tag='<span class="tag t-planet">★</span>';}
       else if(isStation(n)){cell.classList.add('station'); icon=stationTile(); tag='<span class="tag t-station">⇄</span>';}
       else if(shipDest[n]){cell.classList.add('dest');}
@@ -676,6 +709,20 @@ function drawWarp(){
     body+=`<circle cx="${b.x}" cy="${b.y}" r="${wd+15}" fill="${col}" opacity="0.06"/>`;
     body+=`<circle cx="${b.x}" cy="${b.y}" r="2.4" fill="#fff" opacity="0.9"/>`;
   });
+  const mcol={small:'#ffb347',mid:'#ff5d8f',major:'#ff4d4d'}, mw={small:3,mid:4,major:5.5};
+  MALFUNCTIONS.forEach((m,i)=>{
+    const a=centerOf(m.from), b=centerOf(m.to);
+    const col=mcol[m.tier]||'#ff5d8f', wd=mw[m.tier]||4;
+    const ang=Math.atan2(b.y-a.y,b.x-a.x), deg=ang*180/Math.PI; const id=`mg${i}`;
+    defs+=`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><stop offset="0" stop-color="${col}" stop-opacity="0.95"/><stop offset="0.5" stop-color="${col}" stop-opacity="0.5"/><stop offset="1" stop-color="${col}" stop-opacity="0.1"/></linearGradient>`;
+    body+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${wd+8}" opacity="0.06" stroke-linecap="round"/>`;
+    body+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="url(#${id})" stroke-width="${wd}" stroke-linecap="round" stroke-dasharray="2 ${(wd*2.4).toFixed(0)}"/>`;
+    body+=`<circle cx="${a.x}" cy="${a.y}" r="${wd+6}" fill="none" stroke="${col}" stroke-width="2" opacity="0.8"/>`;
+    const nch=4;
+    for(let k=0;k<nch;k++){ const fr=0.32+0.5*(k/(nch-1)); const px=a.x+(b.x-a.x)*fr, py=a.y+(b.y-a.y)*fr; const sc=0.9-0.4*(k/(nch-1)); const cw=(7*sc).toFixed(1);
+      body+=`<g transform="translate(${px.toFixed(1)},${py.toFixed(1)}) rotate(${deg.toFixed(1)})"><path d="M ${-cw},${-cw} L ${(cw*0.7).toFixed(1)},0 L ${-cw},${cw}" fill="none" stroke="${col}" stroke-width="${(1.8*sc).toFixed(1)}" stroke-linecap="round" opacity="0.7"/></g>`; }
+    body+=`<circle cx="${b.x}" cy="${b.y}" r="${wd+3}" fill="none" stroke="${col}" stroke-width="1.6" opacity="0.5" stroke-dasharray="3 4"/>`;
+  });
   warp.innerHTML=defs+'</defs>'+body;
 }
 
@@ -722,7 +769,8 @@ function renderSeats(){
   players.forEach((p,i)=>{
     const s=document.createElement('div');
     s.className='seat'+(i===turn&&!over?' active':'')+(p.home?' home':'');
-    let stats=`<span class="stat">★ ${p.cards.length}</span>`;
+    let stats='';
+    if(CARDS_ON) stats+=`<span class="stat">★ ${starsOf(p)}</span>`;
     if(FUEL_ON) stats+=`<span class="stat fuel">✦ ${p.fuel}</span>`;
     if(p.home) stats+=`<span class="stat homebadge">home ✓</span>`;
     s.innerHTML=`<div class="seathead">
@@ -814,7 +862,7 @@ function endCoop(win, caught){
   let g='';
   players.forEach(p=>{
     const cards=p.cards.length? p.cards.map(sq=>`<span class="gcard"><svg viewBox="0 0 100 100" width="34" height="34">${planetArt(50,50,30,PLANET_DATA[sq],'co'+p.idx+'_'+sq)}</svg></span>`).join('') : '<span class="gnone">no worlds</span>';
-    g+=`<div class="gp${p.home?' win':''}"><div class="ghead"><span class="chip" style="background:${p.color}">${p.glyph}</span><span class="gnm">${p.name}${p.home?' ✓ home':''}</span><span class="gstars">★ ${p.cards.length}</span></div><div class="gcards">${cards}</div></div>`;
+    g+=`<div class="gp${p.home?' win':''}"><div class="ghead"><span class="chip" style="background:${p.color}">${p.glyph}</span><span class="gnm">${p.name}${p.home?' ✓ home':''}</span><span class="gstars">★ ${starsOf(p)}</span></div><div class="gcards">${cards}</div></div>`;
   });
   const team=players.reduce((a,p)=>a+p.cards.length,0);
   const veil=document.getElementById('veil'); veil.querySelector('.trophy').classList.add('result');
@@ -839,7 +887,7 @@ async function resolve(p){
   }
   else if(isGood(n)){ dest=Math.min(100,n+3); log(`A friendly alien beams <b>${p.name} +3 → ${dest}</b>.`,'good'); moved=true; }
   else if(isBad(n)){ dest=Math.max(1,n-3); log(`A hostile alien knocks <b>${p.name} −3 → ${dest}</b>.`,'bad'); moved=true; }
-  else if(isMalf(n)){ dest=Math.max(1,n-2); log(`Ship malfunction — <b>${p.name} drifts −2 → ${dest}</b>.`,'malf'); moved=true; }
+  else if(isMalf(n)){ const m=malfFrom[n]; dest=m.to; log(`Ship malfunction! <b>${p.name}</b> slides down to ${dest}.`,'malf'); moved=true; }
   else if(isPlanet(n)){ await awardPlanet(p,n); return; }
   else if(isStation(n)){ await stationStop(p); return; }
 
@@ -854,6 +902,7 @@ async function resolve(p){
 }
 
 async function awardPlanet(p,n){
+  if(!CARDS_ON) return;          // Level 1 (Space Jump): planets are scenery
   const pd=PLANET_DATA[n];
   const owner=players.find(pl=>pl.cards.includes(n));
   if(owner){                                  // each world has ONE card
@@ -888,21 +937,22 @@ function _factRows(pd){return pd.facts.map((fr,i)=>`<div class="frow${i%2?' alt'
 function showPlanetCard(pd){
   return new Promise(resolve=>{
     const col=pd.glow, veil=document.getElementById('cardVeil');
+    const catLabel={planet:'PLANET',moon:'MOON',exo:'EXOPLANET'}[pd.cat]||'WORLD';
     const front=document.getElementById('cardFront'), back=document.getElementById('cardBack'), flip=document.getElementById('flipCard');
     front.style.borderColor=col; back.style.borderColor=col;
-    front.innerHTML=`<div class="cf-sky"></div><svg viewBox="0 0 300 250" width="100%" height="63%" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:8px;left:0">${planetArt(150,128,86,pd,'cmF')}</svg><div class="cf-plate"><div class="cf-num">WORLD #${pd.num}</div><div class="cf-name">${pd.name}</div><div class="cf-kind">${pd.kind.toUpperCase()}</div></div>`;
-    back.innerHTML=`<div class="cb-h"><svg viewBox="0 0 80 80" width="50" height="50">${planetArt(40,40,30,pd,'cmB')}</svg><div><div class="cb-name">${pd.name}</div><div class="cb-kind" style="color:${col}">${pd.kind.toUpperCase()}</div></div></div><div class="cb-data" style="color:${col}">DATA FILE</div>${_factRows(pd)}<div class="cb-fun" style="border-color:${col}66"><b style="color:${col}">DID YOU KNOW?</b> ${pd.fun}</div><button class="cb-claim" id="claimBtn">★ Claim ${pd.name} card</button>`;
+    front.innerHTML=`<div class="cf-pts" style="color:${col};border-color:${col}">+${pd.pts} pts</div><div class="cf-sky"></div><svg viewBox="0 0 300 250" width="100%" height="63%" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:8px;left:0">${planetArt(150,128,86,pd,'cmF')}</svg><div class="cf-plate"><div class="cf-num">WORLD #${pd.num} · ${catLabel}</div><div class="cf-name">${pd.name}</div><div class="cf-kind">${pd.kind.toUpperCase()}</div></div>`;
+    back.innerHTML=`<div class="cb-h"><svg viewBox="0 0 80 80" width="50" height="50">${planetArt(40,40,30,pd,'cmB')}</svg><div><div class="cb-name">${pd.name}</div><div class="cb-kind" style="color:${col}">${pd.kind.toUpperCase()}</div></div></div><div class="cb-data" style="color:${col}">DATA FILE</div>${_factRows(pd)}<div class="cb-fun" style="border-color:${col}66"><b style="color:${col}">DID YOU KNOW?</b> ${pd.fun}</div><div class="cb-fun" style="border-color:${col}66"><b style="color:${col}">ALSO…</b> ${pd.extra}</div><button class="cb-claim" id="claimBtn">★ Claim ${pd.name} (+${pd.pts} pts)</button>`;
     flip.classList.remove('flipped'); veil.classList.add('show');
     flip.onclick=e=>{ if(e.target.closest('#claimBtn'))return; flip.classList.toggle('flipped'); };
     document.getElementById('claimBtn').onclick=e=>{ e.stopPropagation(); veil.classList.remove('show'); flip.onclick=null; resolve(); };
   });
 }
 
-function starsOf(p){ let s=p.cards.length; if(MISSIONS) p.missions.forEach(m=>{ if(m.test(p.cards)) s+=m.bonus; }); return s; }
+function starsOf(p){ let s=p.cards.reduce((a,sq)=>a+((PLANET_DATA[sq]&&PLANET_DATA[sq].pts)||1),0); if(MISSIONS) p.missions.forEach(m=>{ if(m.test(p.cards)) s+=m.bonus; }); return s; }
 function finish(finisher){
   over=true; busy=false; rollBtn.disabled=true;
   let winner;
-  if(QUICK){ winner=finisher; }
+  if(QUICK || !CARDS_ON){ winner=finisher; }
   else {
     const top=Math.max(...players.map(starsOf));
     const leaders=players.filter(p=>starsOf(p)===top);
@@ -911,6 +961,15 @@ function finish(finisher){
   renderSeats(); showWin(winner, finisher);
 }
 function showWin(winner, finisher){
+  const veil0=document.getElementById('veil');
+  if(!CARDS_ON){
+    veil0.querySelector('.trophy').classList.add('result');
+    veil0.querySelector('.big').textContent='🏆';
+    document.getElementById('winName').textContent=`${winner.name} wins the race!`;
+    document.getElementById('winDetail').innerHTML='First rocket across sector 100 — a clean Space Jump victory!';
+    log(`<b>${winner.name} reaches Home Base first and wins!</b>`,'win');
+    setTimeout(()=>veil0.classList.add('show'),REDUCED?0:500); return;
+  }
   const ranked=[...players].sort((a,b)=> (b===winner)-(a===winner) || starsOf(b)-starsOf(a));
   let g='';
   ranked.forEach(p=>{
@@ -921,7 +980,7 @@ function showWin(winner, finisher){
   });
   const veil=document.getElementById('veil'); veil.querySelector('.trophy').classList.add('result');
   document.getElementById('winName').textContent = QUICK ? `${winner.name} wins the quick race!` : `${winner.name} wins!`;
-  const lead = QUICK ? `First to cross sector 50! Final tally:` : `Most stars in the fleet — planet cards plus completed missions. Final tally:`;
+  const lead = QUICK ? `First to cross sector 50! Final tally:` : `Most points in the fleet — card points plus completed missions. Final tally:`;
   document.getElementById('winDetail').innerHTML = lead + `<div class="gwrap">${g}</div>`;
   log(`<b>${winner.name} wins with ★ ${starsOf(winner)}!</b>`,'win');
   setTimeout(()=>veil.classList.add('show'),REDUCED?0:500);
@@ -930,10 +989,12 @@ function showWin(winner, finisher){
 /* ---------- setup / reset ---------- */
 function newGame(n){
   numPlayers=n; turn=0; busy=false; over=false;
-  MISSIONS=optOn('missions'); SECRET=MISSIONS&&optOn('secret'); FUEL_ON=optOn('fuel'); QUICK=optOn('quick');
+  CARDS_ON=(LEVEL!==1);
+  MISSIONS=CARDS_ON && optOn('missions'); SECRET=MISSIONS&&optOn('secret'); FUEL_ON=optOn('fuel'); QUICK=optOn('quick');
   SHUFFLE=optOn('shuffle'); COOP=optOn('coop'); if(COOP) QUICK=false;
   WARP_CHOICE=MISSIONS; GOAL=QUICK?50:100;
   setLayout(SHUFFLE?shuffleLayout():FIXED_LAYOUT); buildBoard();
+  var _th = SHUFFLE ? THEMES[1+Math.floor(Math.random()*(THEMES.length-1))] : THEMES[0]; applyTheme(_th);
   const veil=document.getElementById('veil'); veil.classList.remove('show'); veil.querySelector('.trophy').classList.remove('result');
   document.getElementById('cardVeil').classList.remove('show');
   document.getElementById('choiceVeil').classList.remove('show');
@@ -945,8 +1006,9 @@ function newGame(n){
   ASTEROID=100;
   recalc(); refreshClaims(); renderSeats(); showDie(1); rollBtn.disabled=false;
   [...document.querySelectorAll('#setup button')].forEach(b=>b.classList.toggle('sel',+b.dataset.n===n));
-  const bits=[COOP?'Co-op vs the Asteroid':(QUICK?'Quick race to 50':'Race to 100')];
-  if(SHUFFLE) bits.push('shuffled galaxy');
+  const LV=['','Space Jump','Planet Hunt','Deep Space Ops'][LEVEL]||'';
+  const bits=[LV, COOP?'Co-op vs the Asteroid':(QUICK?'Quick race to 50':'Race to 100')];
+  if(SHUFFLE) bits.push(_th.name+' galaxy');
   if(MISSIONS) bits.push(SECRET?'secret missions':'open missions');
   if(FUEL_ON) bits.push('fuel cells');
   log(`Mission armed — ${n} crew · ${bits.join(' · ')}. Roll to fly.`);
@@ -974,6 +1036,15 @@ requestAnimationFrame(()=>{ if(!players.length){ newGame(2);} });
 var FUEL_START=3, FUEL_CAP=5;
 var MISSIONS=true, SECRET=false, FUEL_ON=true, QUICK=false, WARP_CHOICE=true, GOAL=100;
 var SHUFFLE=false, COOP=false, ASTEROID=100, ASTEROID_STEP=5;
+var LEVEL=2, CARDS_ON=true;
+const THEMES=[
+ {name:'Cyan Drift',accent:'#38e1ff',bg:'radial-gradient(1200px 700px at 80% -8%, #21317a 0%, rgba(33,49,122,0) 58%),radial-gradient(900px 620px at 4% 108%, #3a1c6b 0%, rgba(58,28,107,0) 55%),radial-gradient(700px 520px at 96% 90%, #5e2350 0%, rgba(94,35,80,0) 55%),#05060f'},
+ {name:'Violet Nebula',accent:'#b388ff',bg:'radial-gradient(1200px 700px at 80% -8%, #3a2a8a 0%, rgba(58,42,138,0) 58%),radial-gradient(900px 620px at 4% 108%, #5a1c7b 0%, rgba(90,28,123,0) 55%),radial-gradient(700px 520px at 96% 90%, #3a2070 0%, rgba(58,32,112,0) 55%),#070613'},
+ {name:'Ember Cloud',accent:'#ff9d5c',bg:'radial-gradient(1200px 700px at 80% -8%, #7a2f2a 0%, rgba(122,47,42,0) 58%),radial-gradient(900px 620px at 4% 108%, #5a2440 0%, rgba(90,36,64,0) 55%),radial-gradient(700px 520px at 96% 90%, #6e3a1c 0%, rgba(110,58,28,0) 55%),#0c0710'},
+ {name:'Emerald Rift',accent:'#56e0a0',bg:'radial-gradient(1200px 700px at 80% -8%, #16604f 0%, rgba(22,96,79,0) 58%),radial-gradient(900px 620px at 4% 108%, #1c5a6b 0%, rgba(28,90,107,0) 55%),radial-gradient(700px 520px at 96% 90%, #205a3a 0%, rgba(32,90,58,0) 55%),#050f0d'},
+ {name:'Rose Quasar',accent:'#ff6fa5',bg:'radial-gradient(1200px 700px at 80% -8%, #7a2a55 0%, rgba(122,42,85,0) 58%),radial-gradient(900px 620px at 4% 108%, #5a1c5b 0%, rgba(90,28,91,0) 55%),radial-gradient(700px 520px at 96% 90%, #6e2370 0%, rgba(110,35,112,0) 55%),#0d0712'},
+ {name:'Gold Corona',accent:'#ffd45e',bg:'radial-gradient(1200px 700px at 80% -8%, #6e5a1c 0%, rgba(110,90,28,0) 58%),radial-gradient(900px 620px at 4% 108%, #5a3a1c 0%, rgba(90,58,28,0) 55%),radial-gradient(700px 520px at 96% 90%, #6e4a20 0%, rgba(110,74,32,0) 55%),#0c0a07'}];
+function applyTheme(t){ document.body.style.background=t.bg; document.documentElement.style.setProperty('--plasma',t.accent); }
 const MISSIONS_DATA=[
  {id:'inner',name:'Inner Circle',rule:'All 4 rocky planets',bonus:4,ac:'#ffb347',test:c=>[5,12,23,35].every(s=>c.includes(s))},
  {id:'gas',name:'Gas Giants',rule:'Jupiter + Saturn',bonus:2,ac:'#e0a85a',test:c=>[42,56].every(s=>c.includes(s))},
@@ -1037,12 +1108,23 @@ function choiceAsk(title, opts){
 
 function optOn(name){ const el=document.querySelector(`#opts [data-opt="${name}"]`); return !!el && el.classList.contains('on'); }
 function syncOpts(){
-  const mis=optOn('missions'); const sec=document.querySelector('#opts [data-opt="secret"]'); if(sec) sec.classList.toggle('disabled', !mis);
+  const lvl1=(LEVEL===1);
+  const m=document.querySelector('#opts [data-opt="missions"]'); if(m) m.classList.toggle('disabled', lvl1);
+  const mis=optOn('missions'); const sec=document.querySelector('#opts [data-opt="secret"]'); if(sec) sec.classList.toggle('disabled', lvl1 || !mis);
   const coop=optOn('coop'), quick=optOn('quick');
   const q=document.querySelector('#opts [data-opt="quick"]'); if(q) q.classList.toggle('disabled', coop);
   const c=document.querySelector('#opts [data-opt="coop"]'); if(c) c.classList.toggle('disabled', quick);
 }
-document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); syncOpts(); newGame(numPlayers); }));
+function setOpt(name,on){ const el=document.querySelector(`#opts [data-opt="${name}"]`); if(el) el.classList.toggle('on',!!on); }
+function setLevel(n){
+  LEVEL=n;
+  document.querySelectorAll('#levels .lvl').forEach(b=>b.classList.toggle('active',+b.dataset.level===n));
+  if(n===3){ setOpt('missions',true); setOpt('fuel',true); } else { setOpt('missions',false); setOpt('fuel',false); }
+  setOpt('secret',false); setOpt('quick',false); setOpt('coop',false);
+  syncOpts(); newGame(numPlayers);
+}
+document.querySelectorAll('#levels .lvl').forEach(b=>b.addEventListener('click',()=>setLevel(+b.dataset.level)));
+document.querySelectorAll('#opts .opt').forEach(b=>b.addEventListener('click',()=>{ b.classList.toggle('on'); document.querySelectorAll('#levels .lvl').forEach(l=>l.classList.remove('active')); syncOpts(); newGame(numPlayers); }));
 let TSZ=0; function tszApply(){ document.body.classList.remove('tsz1','tsz2'); if(TSZ===1)document.body.classList.add('tsz1'); if(TSZ===2)document.body.classList.add('tsz2'); }
 document.getElementById('txtUp').addEventListener('click',()=>{ TSZ=Math.min(2,TSZ+1); tszApply(); });
 document.getElementById('txtDn').addEventListener('click',()=>{ TSZ=Math.max(0,TSZ-1); tszApply(); });
@@ -1110,5 +1192,6 @@ async function stationStop(p){
 
 try{initLegend();}catch(e){}
 </script>
+<div class="wm">Created by Bhavin</div>
 </body>
 </html>
